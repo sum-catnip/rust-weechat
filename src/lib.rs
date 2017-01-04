@@ -1,7 +1,6 @@
+#[macro_use] extern crate error_chain;
 extern crate libc;
+#[macro_use] extern crate log;
 
+pub mod errors;
 pub mod ffi;
-pub mod init;
-pub mod plugin;
-
-pub use plugin::WeechatPlugin;
