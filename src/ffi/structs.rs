@@ -155,6 +155,9 @@ pub struct t_weechat_plugin {
                                             length: c_int, to: *mut c_char),
     pub string_decode_base64: extern "C" fn(from: *const c_char,
                                             to: *mut c_char) -> c_int,
+    pub string_hex_dump: extern "C" fn(data: *const c_char, data_size: c_int,
+                                       bytes_per_line: c_int, prefix: *const c_char,
+                                       suffix: *const c_char) -> *mut c_char,
     pub string_is_command_char: extern "C" fn(string: *const c_char) -> c_int,
     pub string_input_for_buffer: extern "C" fn(string: *const c_char)
                                      -> *const c_char,
@@ -167,6 +170,7 @@ pub struct t_weechat_plugin {
     /* UTF-8 strings */
     pub utf8_has_8bits: extern "C" fn(string: *const c_char) -> c_int,
     pub utf8_is_valid: extern "C" fn(string: *const c_char,
+                                     length: c_int,
                                      error: *mut *mut c_char) -> c_int,
     pub utf8_normalize: extern "C" fn(string: *mut c_char,
                                       replacement: c_char),
@@ -199,11 +203,11 @@ pub struct t_weechat_plugin {
     pub mkdir: extern "C" fn(directory: *const c_char, mode: c_int) -> c_int,
     pub mkdir_parents: extern "C" fn(directory: *const c_char, mode: c_int)
                            -> c_int,
-    pub exec_on_files: extern "C" fn(directory: *const c_char,
-                                     hidden_files: c_int, data: *mut c_void,
+    pub exec_on_files: extern "C" fn(directory: *const c_char, hidden_files: c_int,
                                      callback:
                                          Option<extern "C" fn(data: *mut c_void,
-                                                              filename: *const c_char)>),
+                                                              filename: *const c_char)>,
+                                     callback_data: *mut c_void),
     pub file_get_content: extern "C" fn(filename: *const c_char)
                               -> *mut c_char,
 
@@ -313,9 +317,11 @@ pub struct t_weechat_plugin {
     pub config_new: extern "C" fn(plugin: *mut t_weechat_plugin,
                                   name: *const c_char,
                                   callback_reload:
-                                      Option<extern "C" fn(data: *mut c_void,
+                                      Option<extern "C" fn(pointer: *const c_void,
+                                                           data: *mut c_void,
                                                            config_file: *mut t_config_file)
                                                  -> c_int>,
+                                  callback_reload_pointer: *const c_void,
                                   callback_reload_data: *mut c_void)
                         -> *mut t_config_file,
     pub config_new_section: extern "C" fn(config_file: *mut t_config_file,
@@ -323,39 +329,49 @@ pub struct t_weechat_plugin {
                                           user_can_add_options: c_int,
                                           user_can_delete_options: c_int,
                                           callback_read:
-                                              Option<extern "C" fn(data: *mut c_void,
+                                              Option<extern "C" fn(pointer: *const c_void,
+                                                                   data: *mut c_void,
                                                                    config_file: *mut t_config_file,
                                                                    section: *mut t_config_section,
                                                                    option_name: *const c_char,
                                                                    value: *const c_char)
                                                          -> c_int>,
+                                          callback_read_pointer: *const c_void,
                                           callback_read_data: *mut c_void,
                                           callback_write:
-                                              Option<extern "C" fn(data: *mut c_void,
+                                              Option<extern "C" fn(pointer: *const c_void,
+                                                                   data: *mut c_void,
                                                                    config_file: *mut t_config_file,
                                                                    section_name: *const c_char)
                                                          -> c_int>,
+                                          callback_write_pointer: *const c_void,
                                           callback_write_data: *mut c_void,
                                           callback_write_default:
-                                              Option<extern "C" fn(data: *mut c_void,
+                                              Option<extern "C" fn(pointer: *const c_void,
+                                                                   data: *mut c_void,
                                                                    config_file: *mut t_config_file,
                                                                    section_name: *const c_char)
                                                          -> c_int>,
+                                          callback_write_default_pointer: *const c_void,
                                           callback_write_default_data: *mut c_void,
                                           callback_create_option:
-                                              Option<extern "C" fn(data: *mut c_void,
+                                              Option<extern "C" fn(pointer: *const c_void,
+                                                                   data: *mut c_void,
                                                                    config_file: *mut t_config_file,
                                                                    section: *mut t_config_section,
                                                                    option_name: *const c_char,
                                                                    value: *const c_char)
                                                          -> c_int>,
+                                          callback_create_option_pointer: *const c_void,
                                           callback_create_option_data: *mut c_void,
                                           callback_delete_option:
-                                              Option<extern "C" fn(data: *mut c_void,
+                                              Option<extern "C" fn(pointer: *const c_void,
+                                                                   data: *mut c_void,
                                                                    config_file: *mut t_config_file,
                                                                    section: *mut t_config_section,
                                                                    option: *mut t_config_option)
                                                          -> c_int>,
+                                          callback_delete_option_pointer: *const c_void,
                                           callback_delete_option_data: *mut c_void)
                                 -> *mut t_config_section,
     pub config_search_section: extern "C" fn(config_file: *mut t_config_file,
@@ -372,18 +388,24 @@ pub struct t_weechat_plugin {
                                          value: *const c_char,
                                          null_value_allowed: c_int,
                                          callback_check_value:
-                                             Option<extern "C" fn(data: *mut c_void,
+                                             Option<extern "C" fn(pointer: *const c_void,
+                                                                  data: *mut c_void,
                                                                   option: *mut t_config_option,
                                                                   value: *const c_char)
                                                         -> c_int>,
+                                         callback_check_value_pointer: *const c_void,
                                          callback_check_value_data: *mut c_void,
                                          callback_change:
-                                             Option<extern "C" fn(data: *mut c_void,
+                                             Option<extern "C" fn(pointer: *const c_void,
+                                                                  data: *mut c_void,
                                                                   option: *mut t_config_option)>,
+                                         callback_change_pointer: *const c_void,
                                          callback_change_data: *mut c_void,
                                          callback_delete:
-                                             Option<extern "C" fn(data: *mut c_void,
+                                             Option<extern "C" fn(pointer: *const c_void,
+                                                                  data: *mut c_void,
                                                                   option: *mut t_config_option)>,
+                                         callback_delete_pointer: *const c_void,
                                          callback_delete_data: *mut c_void)
                                -> *mut t_config_option,
     pub config_search_option: extern "C" fn(config_file: *mut t_config_file,
@@ -489,47 +511,57 @@ pub struct t_weechat_plugin {
                                     args_description: *const c_char,
                                     completion: *const c_char,
                                     callback:
-                                        Option<extern "C" fn(data: *mut c_void,
+                                        Option<extern "C" fn(pointer: *const c_void,
+                                                             data: *mut c_void,
                                                              buffer: *mut t_gui_buffer,
                                                              argc: c_int,
                                                              argv: *mut *mut c_char,
                                                              argv_eol: *mut *mut c_char)
                                                    -> c_int>,
+                                    callback_pointer: *const c_void,
                                     callback_data: *mut c_void)
                           -> *mut t_hook,
     pub hook_command_run: extern "C" fn(plugin: *mut t_weechat_plugin,
                                         command: *const c_char,
                                         callback:
-                                            Option<extern "C" fn(data: *mut c_void,
+                                            Option<extern "C" fn(pointer: *const c_void,
+                                                                 data: *mut c_void,
                                                                  buffer: *mut t_gui_buffer,
                                                                  command: *const c_char)
                                                        -> c_int>,
+                                        callback_pointer: *const c_void,
                                         callback_data: *mut c_void)
                               -> *mut t_hook,
     pub hook_timer: extern "C" fn(plugin: *mut t_weechat_plugin,
                                   interval: c_long, align_second: c_int,
                                   max_calls: c_int,
                                   callback:
-                                      Option<extern "C" fn(data: *mut c_void,
+                                      Option<extern "C" fn(pointer: *const c_void,
+                                                           data: *mut c_void,
                                                            remaining_calls: c_int)
                                                  -> c_int>,
+                                  callback_pointer: *const c_void,
                                   callback_data: *mut c_void) -> *mut t_hook,
     pub hook_fd: extern "C" fn(plugin: *mut t_weechat_plugin, fd: c_int,
                                flag_read: c_int, flag_write: c_int,
                                flag_exception: c_int,
                                callback:
-                                   Option<extern "C" fn(data: *mut c_void,
+                                   Option<extern "C" fn(pointer: *const c_void,
+                                                        data: *mut c_void,
                                                         fd: c_int) -> c_int>,
+                               callback_pointer: *const c_void,
                                callback_data: *mut c_void) -> *mut t_hook,
     pub hook_process: extern "C" fn(plugin: *mut t_weechat_plugin,
                                     command: *const c_char, timeout: c_int,
                                     callback:
-                                        Option<extern "C" fn(data: *mut c_void,
+                                        Option<extern "C" fn(pointer: *const c_void,
+                                                             data: *mut c_void,
                                                              command: *const c_char,
                                                              return_code: c_int,
                                                              out: *const c_char,
                                                              err: *const c_char)
                                                    -> c_int>,
+                                    callback_pointer: *const c_void,
                                     callback_data: *mut c_void)
                           -> *mut t_hook,
     pub hook_process_hashtable: extern "C" fn(plugin: *mut t_weechat_plugin,
@@ -537,12 +569,14 @@ pub struct t_weechat_plugin {
                                               options: *mut t_hashtable,
                                               timeout: c_int,
                                               callback:
-                                                  Option<extern "C" fn(data: *mut c_void,
+                                                  Option<extern "C" fn(pointer: *const c_void,
+                                                                       data: *mut c_void,
                                                                        command: *const c_char,
                                                                        return_code: c_int,
                                                                        out: *const c_char,
                                                                        err: *const c_char)
                                                              -> c_int>,
+                                              callback_pointer: *const c_void,
                                               callback_data: *mut c_void)
                                     -> *mut t_hook,
     pub hook_connect: extern "C" fn(plugin: *mut t_weechat_plugin,
@@ -555,13 +589,15 @@ pub struct t_weechat_plugin {
                                     gnutls_priorities: *const c_char,
                                     local_hostname: *const c_char,
                                     callback:
-                                        Option<extern "C" fn(data: *mut c_void,
+                                        Option<extern "C" fn(pointer: *const c_void,
+                                                             data: *mut c_void,
                                                              status: c_int,
                                                              gnutls_rc: c_int,
                                                              sock: c_int,
                                                              error: *const c_char,
                                                              ip_address: *const c_char)
                                                    -> c_int>,
+                                    callback_pointer: *const c_void,
                                     callback_data: *mut c_void)
                           -> *mut t_hook,
     pub hook_print: extern "C" fn(plugin: *mut t_weechat_plugin,
@@ -569,7 +605,8 @@ pub struct t_weechat_plugin {
                                   tags: *const c_char, message: *const c_char,
                                   strip_colors: c_int,
                                   callback:
-                                      Option<extern "C" fn(data: *mut c_void,
+                                      Option<extern "C" fn(pointer: *const c_void,
+                                                           data: *mut c_void,
                                                            buffer: *mut t_gui_buffer,
                                                            date: time_t,
                                                            tags_count: c_int,
@@ -579,15 +616,18 @@ pub struct t_weechat_plugin {
                                                            prefix: *const c_char,
                                                            message: *const c_char)
                                                  -> c_int>,
+                                  callback_pointer: *const c_void,
                                   callback_data: *mut c_void) -> *mut t_hook,
     pub hook_signal: extern "C" fn(plugin: *mut t_weechat_plugin,
                                    signal: *const c_char,
                                    callback:
-                                       Option<extern "C" fn(data: *mut c_void,
+                                       Option<extern "C" fn(pointer: *const c_void,
+                                                            data: *mut c_void,
                                                             signal: *const c_char,
                                                             type_data: *const c_char,
                                                             signal_data: *mut c_void)
                                                   -> c_int>,
+                                   callback_pointer: *const c_void,
                                    callback_data: *mut c_void) -> *mut t_hook,
     pub hook_signal_send: extern "C" fn(signal: *const c_char,
                                         type_data: *const c_char,
@@ -595,10 +635,12 @@ pub struct t_weechat_plugin {
     pub hook_hsignal: extern "C" fn(plugin: *mut t_weechat_plugin,
                                     signal: *const c_char,
                                     callback:
-                                        Option<extern "C" fn(data: *mut c_void,
+                                        Option<extern "C" fn(pointer: *const c_void,
+                                                             data: *mut c_void,
                                                              signal: *const c_char,
                                                              hashtable: *mut t_hashtable)
                                                    -> c_int>,
+                                    callback_pointer: *const c_void,
                                     callback_data: *mut c_void)
                           -> *mut t_hook,
     pub hook_hsignal_send: extern "C" fn(signal: *const c_char,
@@ -607,20 +649,25 @@ pub struct t_weechat_plugin {
     pub hook_config: extern "C" fn(plugin: *mut t_weechat_plugin,
                                    option: *const c_char,
                                    callback:
-                                       Option<extern "C" fn(data: *mut c_void,
+                                       Option<extern "C" fn(pointer: *const c_void,
+                                                            data: *mut c_void,
                                                             option: *const c_char,
                                                             value: *const c_char)
                                                   -> c_int>,
-                                   callback_data: *mut c_void) -> *mut t_hook,
+                                   callback_pointer: *const c_void,
+                                   callback_data: *mut c_void)
+                            -> *mut t_hook,
     pub hook_completion: extern "C" fn(plugin: *mut t_weechat_plugin,
                                        completion_item: *const c_char,
                                        description: *const c_char,
                                        callback:
-                                           Option<extern "C" fn(data: *mut c_void,
+                                           Option<extern "C" fn(pointer: *const c_void,
+                                                                data: *mut c_void,
                                                                 completion_item: *const c_char,
                                                                 buffer: *mut t_gui_buffer,
                                                                 completion: *mut t_gui_completion)
                                                       -> c_int>,
+                                       callback_pointer: *const c_void,
                                        callback_data: *mut c_void)
                              -> *mut t_hook,
     pub hook_completion_get_string: extern "C" fn(completion: *mut t_gui_completion,
@@ -633,11 +680,13 @@ pub struct t_weechat_plugin {
     pub hook_modifier: extern "C" fn(plugin: *mut t_weechat_plugin,
                                      modifier: *const c_char,
                                      callback:
-                                         Option<extern "C" fn(data: *mut c_void,
+                                         Option<extern "C" fn(pointer: *const c_void,
+                                                              data: *mut c_void,
                                                               modifier: *const c_char,
                                                               modifier_data: *const c_char,
                                                               string: *const c_char)
                                                     -> *mut c_char>,
+                                     callback_pointer: *const c_void,
                                      callback_data: *mut c_void)
                            -> *mut t_hook,
     pub hook_modifier_exec: extern "C" fn(plugin: *mut t_weechat_plugin,
@@ -650,10 +699,12 @@ pub struct t_weechat_plugin {
                                  description: *const c_char,
                                  args_description: *const c_char,
                                  callback:
-                                     Option<extern "C" fn(data: *mut c_void,
+                                     Option<extern "C" fn(pointer: *const c_void,
+                                                          data: *mut c_void,
                                                           info_name: *const c_char,
                                                           arguments: *const c_char)
                                                 -> *const c_char>,
+                                 callback_pointer: *const c_void,
                                  callback_data: *mut c_void) -> *mut t_hook,
     pub hook_info_hashtable: extern "C" fn(plugin: *mut t_weechat_plugin,
                                            info_name: *const c_char,
@@ -661,11 +712,12 @@ pub struct t_weechat_plugin {
                                            args_description: *const c_char,
                                            output_description: *const c_char,
                                            callback:
-                                               Option<extern "C" fn(data: *mut c_void,
+                                               Option<extern "C" fn(pointer: *const c_void,
+                                                                    data: *mut c_void,
                                                                     info_name: *const c_char,
                                                                     hashtable: *mut t_hashtable)
-                                                          ->
-                                                              *mut t_hashtable>,
+                                                          -> *mut t_hashtable>,
+                                           callback_pointer: *const c_void,
                                            callback_data: *mut c_void)
                                  -> *mut t_hook,
     pub hook_infolist: extern "C" fn(plugin: *mut t_weechat_plugin,
@@ -674,46 +726,57 @@ pub struct t_weechat_plugin {
                                      pointer_description: *const c_char,
                                      args_description: *const c_char,
                                      callback:
-                                         Option<extern "C" fn(data: *mut c_void,
+                                         Option<extern "C" fn(pointer: *const c_void,
+                                                              data: *mut c_void,
                                                               infolist_name: *const c_char,
                                                               pointer: *mut c_void,
                                                               arguments: *const c_char)
                                                     -> *mut t_infolist>,
+                                     callback_pointer: *const c_void,
                                      callback_data: *mut c_void)
                            -> *mut t_hook,
     pub hook_hdata: extern "C" fn(plugin: *mut t_weechat_plugin,
                                   hdata_name: *const c_char,
                                   description: *const c_char,
                                   callback:
-                                      Option<extern "C" fn(data: *mut c_void,
+                                      Option<extern "C" fn(pointer: *const c_void,
+                                                           data: *mut c_void,
                                                            hdata_name: *const c_char)
                                                  -> *mut t_hdata>,
+                                  callback_pointer: *const c_void,
                                   callback_data: *mut c_void) -> *mut t_hook,
     pub hook_focus: extern "C" fn(plugin: *mut t_weechat_plugin,
                                   area: *const c_char,
                                   callback:
-                                      Option<extern "C" fn(data: *mut c_void,
+                                      Option<extern "C" fn(pointer: *const c_void,
+                                                           data: *mut c_void,
                                                            info: *mut t_hashtable)
                                                  -> *mut t_hashtable>,
+                                  callback_pointer: *const c_void,
                                   callback_data: *mut c_void) -> *mut t_hook,
     pub hook_set: extern "C" fn(hook: *mut t_hook, property: *const c_char,
                                 value: *const c_char),
     pub unhook: extern "C" fn(hook: *mut t_hook),
-    pub unhook_all: extern "C" fn(plugin: *mut t_weechat_plugin),
+    pub unhook_all: extern "C" fn(plugin: *mut t_weechat_plugin,
+                                  subplugin: *const c_char),
 
     /* buffers */
     pub buffer_new: extern "C" fn(plugin: *mut t_weechat_plugin,
                                   name: *const c_char,
                                   input_callback:
-                                      Option<extern "C" fn(data: *mut c_void,
+                                      Option<extern "C" fn(pointer: *const c_void,
+                                                           data: *mut c_void,
                                                            buffer: *mut t_gui_buffer,
                                                            input_data: *const c_char)
                                                  -> c_int>,
+                                  input_callback_pointer: *const c_void,
                                   input_callback_data: *mut c_void,
                                   close_callback:
-                                      Option<extern "C" fn(data: *mut c_void,
+                                      Option<extern "C" fn(pointer: *const c_void,
+                                                           data: *mut c_void,
                                                            buffer: *mut t_gui_buffer)
                                                  -> c_int>,
+                                  close_callback_pointer: *const c_void,
                                   close_callback_data: *mut c_void)
                         -> *mut t_gui_buffer,
     pub buffer_search: extern "C" fn(plugin: *const c_char,
@@ -828,12 +891,14 @@ pub struct t_weechat_plugin {
     pub bar_item_new: extern "C" fn(plugin: *mut t_weechat_plugin,
                                     name: *const c_char,
                                     build_callback:
-                                        Option<extern "C" fn(data: *mut c_void,
+                                        Option<extern "C" fn(pointer: *const c_void,
+                                                             data: *mut c_void,
                                                              item: *mut t_gui_bar_item,
                                                              window: *mut t_gui_window,
                                                              buffer: *mut t_gui_buffer,
                                                              extra_info: *mut t_hashtable)
                                                    -> *mut c_char>,
+                                    build_callback_pointer: *const c_void,
                                     build_callback_data: *mut c_void)
                           -> *mut t_gui_bar_item,
     pub bar_item_update: extern "C" fn(name: *const c_char),
@@ -1019,19 +1084,20 @@ pub struct t_weechat_plugin {
                               -> *const c_char,
 
     /* upgrade */
-    pub upgrade_new: extern "C" fn(filename: *const c_char, write: c_int)
+    pub upgrade_new: extern "C" fn(filename: *const c_char,
+                                   callback_read:
+                                        Option<extern "C" fn(pointer: *const c_void,
+                                                             data: *mut c_void,
+                                                             upgrade_file: *mut t_upgrade_file,
+                                                             object_id: c_int,
+                                                             infolist: *mut t_infolist) -> c_int>,
+                                   callback_read_pointer: *const c_void,
+                                   callback_read_data: *mut c_void)
                          -> *mut t_upgrade_file,
     pub upgrade_write_object: extern "C" fn(upgrade_file: *mut t_upgrade_file,
                                             object_id: c_int,
                                             infolist: *mut t_infolist)
                                   -> c_int,
-    pub upgrade_read: extern "C" fn(upgrade_file: *mut t_upgrade_file,
-                                    callback_read:
-                                        Option<extern "C" fn(data: *mut c_void,
-                                                             upgrade_file: *mut t_upgrade_file,
-                                                             object_id: c_int,
-                                                             infolist: *mut t_infolist)
-                                                   -> c_int>,
-                                    callback_read_data: *mut c_void) -> c_int,
+    pub upgrade_read: extern "C" fn(upgrade_file: *mut t_upgrade_file) -> c_int,
     pub upgrade_close: extern "C" fn(upgrade_file: *mut t_upgrade_file),
 }

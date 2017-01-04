@@ -1,7 +1,7 @@
 use libc::c_int;
 
 pub const WEECHAT_PLUGIN_API_VERSION_LENGTH: usize = 12;
-pub const WEECHAT_PLUGIN_API_VERSION: [u8; WEECHAT_PLUGIN_API_VERSION_LENGTH] = *b"20150704-02\0";
+pub const WEECHAT_PLUGIN_API_VERSION: [u8; WEECHAT_PLUGIN_API_VERSION_LENGTH] = *b"20160618-01\0";
 
 /* return codes for plugin functions */
 pub const WEECHAT_RC_OK: c_int = 0;
@@ -64,8 +64,19 @@ pub const WEECHAT_HOTLIST_LOW: *const u8 = b"0\0" as *const u8;
 pub const WEECHAT_HOTLIST_MESSAGE: *const u8 = b"1\0" as *const u8;
 pub const WEECHAT_HOTLIST_PRIVATE: *const u8 = b"2\0" as *const u8;
 pub const WEECHAT_HOTLIST_HIGHLIGHT: *const u8 = b"3\0" as *const u8;
+
+/*
+ * process return code (for callback):
+ *   if >= 0, the process ended and it's return code of command
+ *   if -1, the process is still running
+ *   if -2, the process ended with an error
+ *   if -3, the callback is called in the child process (exec of function)
+ *          (note: the return code -3 is NEVER sent to script plugins,
+ *           it can be used only in C API)
+ */
 pub const WEECHAT_HOOK_PROCESS_RUNNING: c_int = -1;
 pub const WEECHAT_HOOK_PROCESS_ERROR: c_int = -2;
+pub const WEECHAT_HOOK_PROCESS_CHILD: c_int = -3;
 
 /* connect status for connection hooked */
 pub const WEECHAT_HOOK_CONNECT_OK: c_int = 0;
