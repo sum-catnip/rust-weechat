@@ -32,6 +32,16 @@ pub trait TimerCallback {
     fn callback(&mut self, weechat: &Weechat, remaining_calls: RemainingCalls);
 }
 
+impl<T: FnMut(&Weechat, RemainingCalls) + 'static> TimerCallback for T {
+    fn callback(
+        &mut self,
+        weechat: &Weechat,
+        remaining_calls: RemainingCalls,
+    ) {
+        self(weechat, remaining_calls)
+    }
+}
+
 struct TimerHookData {
     callback: Box<dyn TimerCallback>,
     weechat_ptr: *mut t_weechat_plugin,
