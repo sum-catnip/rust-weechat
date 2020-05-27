@@ -1256,4 +1256,10 @@ impl Buffer<'_> {
             done: false,
         }
     }
+
+    /// Mark previous messages as read, setting the unread marker after the current last line of the
+    /// buffer.
+    pub fn mark_read(&self) {
+        self.set("unread", "");
+    }
 }
