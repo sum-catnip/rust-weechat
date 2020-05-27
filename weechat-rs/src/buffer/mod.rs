@@ -679,7 +679,7 @@ pub(crate) type WeechatInputCbT = unsafe extern "C" fn(
 ) -> c_int;
 
 impl Buffer<'_> {
-    fn weechat(&self) -> Weechat {
+    pub fn weechat(&self) -> Weechat {
         let ptr = match &self.inner {
             InnerBuffers::BorrowedBuffer(b) => b.weechat,
             InnerBuffers::OwnedBuffer(b) => b.weechat,
