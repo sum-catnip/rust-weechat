@@ -328,7 +328,7 @@ impl Weechat {
         }
     }
 
-    pub(crate) fn buffer_from_ptr(
+    pub fn buffer_from_ptr(
         &self,
         buffer_ptr: *mut t_gui_buffer,
     ) -> Buffer {
